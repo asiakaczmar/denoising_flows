@@ -1,4 +1,8 @@
 from settings import LOGDIR, CHECKPOINTS_DIR
+import os
+from functools import reduce
+import tensorflow as tf
+import random, string
 
 
 def get_latest_dir(directory):

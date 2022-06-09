@@ -7,3 +7,4 @@ CONTEXT_FEATURES = 300
 NUM_EPOCHS = 100
 LOGDIR = '/cluster/project/scopem/kjoanna/denoising_flows/logs'
 CHECKPOINTS_DIR = '/cluster/project/scopem/kjoanna/denoising_flows/checkpoints'
+LOGGING_INTERVAL = 1000
