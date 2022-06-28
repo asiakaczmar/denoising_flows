@@ -21,13 +21,13 @@ class StyleganDataset(Dataset):
 
 
 def load_data():
-    zs = np.load(os.path.join(DATA_DIR, 'zs.npy'))
+    ws = np.load(os.path.join(DATA_DIR, 'ws.npy'))
     features = np.load(os.path.join(DATA_DIR, 'downscaled.npy'))
-    features = np.reshape(features, [10000, -1])
-    return zs, features
+    features = np.reshape(features, [20000, -1])
+    return ws, features
 
 
-def get_dataloader():
+def get_dataloader(shuffle=True):
     data = load_data()
     dataset = StyleganDataset(*data)
-    return DataLoader(dataset=dataset, batch_size=64, shuffle=True)
+    return DataLoader(dataset=dataset, batch_size=12, shuffle=shuffle)

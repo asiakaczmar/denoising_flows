@@ -4,6 +4,12 @@ from functools import reduce
 import tensorflow as tf
 import random, string
 
+import resource
+def using(point=""):
+    usage=resource.getrusage(resource.RUSAGE_SELF)
+    return '''%s: usertime=%s systime=%s mem=%s mb
+           '''%(point,usage[0],usage[1],
+                usage[2]/1024.0 )
 
 def get_latest_dir(directory):
     sorted_files = sorted(

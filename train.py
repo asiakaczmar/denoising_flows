@@ -21,7 +21,7 @@ import torch.optim as optim
 
 from nflows.flows import MaskedAutoregressiveFlow
 from settings import SEED, LR, FEATURES, HIDDEN_FEATURES, CONTEXT_FEATURES, NUM_EPOCHS, LOGGING_INTERVAL
-from flow_utils import get_new_model_log_paths
+from flow_utils import get_new_model_log_paths, using
 rnd = np.random.RandomState(SEED)
 logpath, checkpoints_path = get_new_model_log_paths()
 writer = SummaryWriter(log_dir=logpath)
@@ -34,22 +34,32 @@ def create_stylegan():
     return StyleGan2Generator(weights=weights_name, impl=impl, gpu=gpu)
 
 
-def write_summaries(features, z_in, loss, generator, step):
+def normalize(img):
+    return (img - np.min(img))/np.ptp(img)
+
+
+def write_summaries(features,  w_real, w_real_not_clipped, w_created, loss, generator, step):
     writer.add_scalar("Loss/train", loss, step)
-    w = generator.mapping_network(np.reshape(z_in[0][:3].detach(), [3, 512]), training=False)
-    out_images = generator.synthesis_network(w, training=False)
-    resized_images = resize(out_images, [3, 10, 10, 3])
-    import pdb; pdb.set_trace()
-    writer.add_image('output_image', out_images.numpy()[0], step)
-    writer.add_image('downsized_image', np.transpose(resized_images[0], [2,0,1], step)
-    writer.add_image('features', np.transpose(np.reshape(features[0], [10,10,3]), [1,2,0]), step)
-    mse_downscaled = torch.nn.MSELoss(features, resized_images)
+    w_created_matrix = np.tile(w_created,  [1, 18, 1])
+    w_real_matrix = np.tile(w_real, [1,18,1])
+    out_created_images = generator.synthesis_network(w_created_matrix, training=False)
+    out_real_images = generator.synthesis_network(w_real_matrix, training=False)
+    out_full_matrix = generator.synthesis_network(w_real_not_clipped, training=False)
+    resized_images = resize(out_created_images[0], [3, 10, 10])
+    writer.add_image('created_image', resize(normalize(out_created_images.numpy()[0]), [3,128,128]), step)
+    writer.add_image('real_image', resize(normalize(out_real_images.numpy()[0]), [3, 128, 128]), step)
+    #writer.add_image('real_image_full_w', normalize(out_full_matrix.numpy()[0]), step)
+    writer.add_image('downsized_created_image', normalize(resized_images), step)
+    features_reshaped = np.reshape(features, [features.shape[0],3, 10,10])[0]
+    writer.add_image('features', normalize(features_reshaped.numpy()), step)
+    mse_downscaled = np.mean((features[0].detach().numpy() - np.reshape(resized_images, [300]))**2)
     writer.add_scalar('MSE_downscaled/train', mse_downscaled, step)
+    writer.flush()
 
 
-def train_step(x, y, optimizer, epoch, flow):
+def train_step(x, context, optimizer, epoch, flow):
     optimizer.zero_grad()
-    loss = -flow.log_prob(inputs=x, context=y).mean()
+    loss = -flow.log_prob(inputs=x, context=context).mean()
     loss.backward()
     optimizer.step()
     return loss
@@ -76,13 +86,16 @@ def train_loop():
     train_loader = get_dataloader() 
     for epoch in range(NUM_EPOCHS):
         print('epoch ' + str(epoch)) 
-        for x, y in train_loader:
+        for x, c in train_loader:
             step += 1
-            loss = train_step(x, y, optimizer, epoch, flow)
-            if step % LOGGING_INTERVAL:
-                output, probs = flow.sample_and_log_prob(3, context=y)
-                write_summaries(y, output, loss, generator, step)
-        save_checkpoint(epoch, flow, optimizer, loss)
+            noisy_inp = x[:,0:1,:] + np.random.normal(scale=0.00005, size=x[:,0:1,:].shape).astype(np.float32)
+            loss = train_step(noisy_inp[:,0,:], c, optimizer, epoch, flow)
+            if step % LOGGING_INTERVAL == 0:
+                with torch.no_grad():
+                    output, probs = flow.sample_and_log_prob(1, context=c)
+                    write_summaries(c, noisy_inp, x, output, loss, generator, step)
+        if epoch%10==0:
+            save_checkpoint(epoch, flow, optimizer, loss)
 
 if __name__ == '__main__':
     train_loop()

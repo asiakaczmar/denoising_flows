@@ -5,6 +5,7 @@ import torch.nn
 
 from nflows.distributions.base import Distribution
 from nflows.utils import torchutils
+from flow_utils import using
 
 
 class Flow(Distribution):
@@ -51,6 +52,7 @@ class Flow(Distribution):
                 embedded_context, num_reps=num_samples
             )
 
+        import pdb; pdb.set_trace()
         samples, _ = self._transform.inverse(noise, context=embedded_context)
 
         if embedded_context is not None:
