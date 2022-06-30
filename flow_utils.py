@@ -25,13 +25,17 @@ def get_random_string():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
 
 
-def get_new_model_log_paths():
-    if not os.path.exists(LOGDIR):
-        os.makedirs(LOGDIR)
-    if not os.path.exists(CHECKPOINTS_DIR):
-        os.makedirs(CHECKPOINTS_DIR)
-    new_filename_logs = get_latest_dir(LOGDIR)
-    new_filename_checkpoints = get_latest_dir(CHECKPOINTS_DIR)
+def get_new_model_log_paths(conditional=True):
+    suffix = 'conditional' if conditional else 'unconditional'
+    log_dir = LOGDIR.format(suffix)
+    checkpoints_dir = CHECKPOINTS_DIR.format(suffix)
+
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    if not os.path.exists(checkpoints_dir):
+        os.makedirs(checkpoints_dir)
+    new_filename_logs = get_latest_dir(log_dir)
+    new_filename_checkpoints = get_latest_dir(checkpoints_dir)
     real_filename = str(max([int(new_filename_logs), int(new_filename_checkpoints)]))
     real_filename = real_filename + '_' + get_random_string()
-    return os.path.join(LOGDIR, real_filename), os.path.join(CHECKPOINTS_DIR, real_filename)
+    return os.path.join(log_dir, real_filename), os.path.join(checkpoints_dir, real_filename)
