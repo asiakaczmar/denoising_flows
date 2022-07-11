@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.optim as optim
 from nflows.flows import MaskedAutoregressiveFlow
+from encoder import Encoder
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -38,7 +39,7 @@ def normalize(img):
     return (img - np.min(img))/np.ptp(img)
 
 
-def write_summaries(features,  w_real, w_real_not_clipped, w_created, loss, generator, step):
+def write_summaries(features, encoder, w_real, w_real_not_clipped, w_created, loss, generator, step):
     writer.add_scalar("Loss/train", loss, step)
     w_created_matrix = np.tile(w_created,  [1, 18, 1])
     w_real_matrix = np.tile(w_real, [1,18,1])
@@ -54,6 +55,7 @@ def write_summaries(features,  w_real, w_real_not_clipped, w_created, loss, gene
     writer.add_image('features', normalize(features_reshaped.numpy()), step)
     mse_downscaled = np.mean((features[0].detach().numpy() - np.reshape(resized_images, [300]))**2)
     writer.add_scalar('MSE_downscaled/train', mse_downscaled, step)
+    writer.add_histogram('encoder_weights', encoder.conv1.weight, step)
     writer.flush()
 
 
@@ -80,20 +82,27 @@ def train_loop():
     step = 0
     flow = MaskedAutoregressiveFlow(features=FEATURES,
                                     hidden_features=HIDDEN_FEATURES,
-                                    context_features=CONTEXT_FEATURES)
+                                    context_features=CONTEXT_FEATURES,
+                                    batch_norm_within_layers=True,
+                                    #batch_norm_between_layers=True,
+                                    num_layers=15,
+                                    num_blocks_per_layer=4
+                                    )
     generator = create_stylegan()
+    encoder = Encoder()
     optimizer = optim.Adam(flow.parameters(), lr=LR)
     train_loader = get_dataloader() 
     for epoch in range(NUM_EPOCHS):
         print('epoch ' + str(epoch)) 
         for x, c in train_loader:
+            encoded_c = encoder(c)
             step += 1
             noisy_inp = x[:,0:1,:] + np.random.normal(scale=0.00005, size=x[:,0:1,:].shape).astype(np.float32)
-            loss = train_step(noisy_inp[:,0,:], c, optimizer, epoch, flow)
+            loss = train_step(noisy_inp[:,0,:], encoded_c, optimizer, epoch, flow)
             if step % LOGGING_INTERVAL == 0:
                 with torch.no_grad():
-                    output, probs = flow.sample_and_log_prob(1, context=c)
-                    write_summaries(c, noisy_inp, x, output, loss, generator, step)
+                    output, probs = flow.sample_and_log_prob(1, context=encoded_c)
+                    write_summaries(c,encoder, noisy_inp, x, output, loss, generator, step)
         if epoch%10==0:
             save_checkpoint(epoch, flow, optimizer, loss)
 

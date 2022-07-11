@@ -3,7 +3,7 @@ import os
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-from settings import DATA_DIR
+from settings import DATA_DIR, BATCH_SIZE
 
 
 class StyleganDataset(Dataset):
@@ -30,4 +30,4 @@ def load_data():
 def get_dataloader(shuffle=True):
     data = load_data()
     dataset = StyleganDataset(*data)
-    return DataLoader(dataset=dataset, batch_size=12, shuffle=shuffle)
+    return DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=shuffle)

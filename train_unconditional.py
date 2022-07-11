@@ -51,7 +51,7 @@ def train_loop():
         for x, c in train_loader:
             step += 1
             noisy_inp = x[:, 0:1, :] + np.random.normal(scale=0.00005, size=x[:, 0:1, :].shape).astype(np.float32)
-            loss = train_step(noisy_inp[:, 0, :], c, optimizer, epoch, flow)
+            loss = train_step(noisy_inp[:, 0, :], optimizer, epoch, flow)
             if step % LOGGING_INTERVAL == 0:
                 writer.add_scalar("Loss/train", loss, step)
         if epoch % 10 == 0:
